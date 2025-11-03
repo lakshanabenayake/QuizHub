@@ -22,6 +22,11 @@ public class QuizServer {
     private ExecutorService threadPool;
     private ServerUI ui;
 
+    // Track answers for current question
+    private Map<Integer, Set<String>> questionAnswers; // questionId -> Set of studentIds who answered
+    private ScheduledFuture<?> currentQuestionTimer;
+    private ScheduledExecutorService scheduler;
+
     public QuizServer(int port) {
         this.port = port;
         this.clients = new CopyOnWriteArrayList<>();
@@ -29,6 +34,8 @@ public class QuizServer {
         this.session = new QuizSession("SESSION-" + System.currentTimeMillis());
         this.scoringSystem = new ScoringSystem(session);
         this.threadPool = Executors.newCachedThreadPool();
+        this.questionAnswers = new ConcurrentHashMap<>();
+        this.scheduler = Executors.newScheduledThreadPool(1);
         this.running = false;
     }
 
@@ -175,6 +182,9 @@ public class QuizServer {
      */
     public ScoringSystem.AnswerResult processAnswer(String studentId, int questionId,
                                                     int answer, long timeTaken) {
+        // Track that this student has answered the question
+        questionAnswers.computeIfAbsent(questionId, k -> ConcurrentHashMap.newKeySet()).add(studentId);
+
         return scoringSystem.recordAnswer(studentId, questionId, answer, timeTaken);
     }
 
@@ -243,10 +253,52 @@ public class QuizServer {
     }
 
     /**
+     * Called when a student submits an answer
+     * Checks if we should auto-advance to next question
+     */
+    public synchronized void onStudentAnswered(int questionId) {
+        if (!session.isActive()) return;
+
+        Question currentQuestion = session.getCurrentQuestion();
+        if (currentQuestion == null || currentQuestion.getId() != questionId) return;
+
+        // Get number of students who have answered this question
+        Set<String> answeredStudents = questionAnswers.get(questionId);
+        if (answeredStudents == null) return;
+
+        int answeredCount = answeredStudents.size();
+        int totalStudents = session.getStudentCount();
+
+        log("Question " + questionId + ": " + answeredCount + "/" + totalStudents + " students answered");
+
+        // Auto-advance after a short delay (3 seconds) to show results
+        // This gives students time to see their result before next question
+        if (currentQuestionTimer != null) {
+            currentQuestionTimer.cancel(false);
+        }
+
+        currentQuestionTimer = scheduler.schedule(() -> {
+            if (session.isActive() && session.hasMoreQuestions()) {
+                sendNextQuestion();
+            } else if (session.isActive()) {
+                endQuiz();
+            }
+        }, 3, TimeUnit.SECONDS);
+    }
+
+    /**
      * Stops the server
      */
     public void stop() {
         running = false;
+
+        // Cancel any pending question timer
+        if (currentQuestionTimer != null) {
+            currentQuestionTimer.cancel(false);
+        }
+
+        // Shutdown scheduler
+        scheduler.shutdown();
 
         // Close all client connections
         for (ClientHandler client : clients) {

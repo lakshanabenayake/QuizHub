@@ -130,6 +130,9 @@ public class ClientHandler implements Runnable {
 
         // Broadcast updated leaderboard
         server.broadcastLeaderboard();
+
+        // Notify server that a student answered (for potential auto-advance)
+        server.onStudentAnswered(questionId);
     }
 
     /**
@@ -210,4 +213,3 @@ public class ClientHandler implements Runnable {
         cleanup();
     }
 }
-
