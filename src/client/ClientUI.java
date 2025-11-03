@@ -44,6 +44,10 @@ public class ClientUI extends JFrame {
     private int currentScore;
     private boolean answerSubmitted;
 
+    // Card layout components
+    private CardLayout cardLayout;
+    private JPanel cardPanel;
+
     public ClientUI(QuizClient client) {
         this.client = client;
         this.currentScore = 0;
@@ -58,7 +62,8 @@ public class ClientUI extends JFrame {
         setLocationRelativeTo(null);
 
         // Create card layout for switching between login and quiz
-        JPanel cardPanel = new JPanel(new CardLayout());
+        cardLayout = new CardLayout();
+        cardPanel = new JPanel(cardLayout);
 
         loginPanel = createLoginPanel();
         quizPanel = createQuizPanel();
@@ -305,8 +310,7 @@ public class ClientUI extends JFrame {
                 try {
                     if (get()) {
                         // Switch to quiz panel
-                        CardLayout cl = (CardLayout) getContentPane().getLayout();
-                        cl.show(getContentPane(), "QUIZ");
+                        cardLayout.show(cardPanel, "QUIZ");
                         setTitle("QuizHub - " + studentName);
                     } else {
                         JOptionPane.showMessageDialog(ClientUI.this,
