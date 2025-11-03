@@ -58,4 +58,3 @@ public class Protocol {
         return new String[]{"", ""};
     }
 }
-

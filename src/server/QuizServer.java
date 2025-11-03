@@ -317,13 +317,15 @@ public class QuizServer {
             }
         }
 
+        // Make port effectively final for lambda
+        final int serverPort = port;
+
         // Start server with UI
         javax.swing.SwingUtilities.invokeLater(() -> {
-            QuizServer server = new QuizServer(port);
+            QuizServer server = new QuizServer(serverPort);
             ServerUI ui = new ServerUI(server);
             server.setUI(ui);
             ui.setVisible(true);
         });
     }
 }
-
