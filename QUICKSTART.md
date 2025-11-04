@@ -1,8 +1,78 @@
 # QuizHub - Quick Start Guide
 
+## ⚡ Quick Steps to Run
+
+### 1️⃣ Start Server
+- Open terminal in QuizHub folder
+- Run: `java -cp bin server.QuizServer`
+- Server UI opens automatically
+- Click **"Start Server"** button
+- ✅ Server is ready!
+
+### 2️⃣ Start Multiple Clients
+- Open multiple terminals/command prompts
+- In each terminal, navigate to QuizHub folder
+- Run: `java -cp bin client.QuizClient`
+- Enter: `localhost`, Student ID (S001, S002...), Name
+- Click **"Connect to Quiz"**
+- Repeat for each student
+
+- After all clients connected, server shows count of connected students
+
+### 3️⃣ Conduct Quiz
+- After all clients connected, On **Server UI**: Click **"Start Quiz"** button
+- Students see questions with timer on their screens
+- Students select answers and click **"Submit Answer"**
+- Click **"Next Question"** on server (or wait for auto-advance)
+- After all questions: Click **"End Quiz"** on server
+- ✅ Final results displayed!
+
+---
+
 ## 🚀 Getting Started in 5 Minutes
 
-### Method 1: Run from IDE (Easiest - No Scripts Required!)
+### Method 1: Run from Command Line (Recommended)
+
+#### Step 1: Compile the Project
+Open terminal/command prompt in the QuizHub folder:
+
+```cmd
+javac -d bin src\server\*.java src\client\*.java src\model\*.java src\common\*.java
+```
+
+#### Step 2: Start the Server
+Open **Terminal/Command Prompt 1**:
+
+```cmd
+java -cp bin server.QuizServer
+```
+
+The Server UI opens → Click **"Start Server"** button
+
+#### Step 3: Start Clients (Students)
+Open **Terminal/Command Prompt 2** (for Student 1):
+
+```cmd
+java -cp bin client.QuizClient
+```
+
+Open **Terminal/Command Prompt 3** (for Student 2):
+
+```cmd
+java -cp bin client.QuizClient
+```
+
+Open **Terminal/Command Prompt 4** (for Student 3):
+
+```cmd
+java -cp bin client.QuizClient
+```
+
+Each client UI opens → Enter details and connect
+
+---
+
+### Method 2: Run from IDE (Alternative)
 
 #### Step 1: Open Project in Your IDE
 - IntelliJ IDEA, Eclipse, VS Code, or NetBeans
@@ -27,47 +97,6 @@
 6. ✅ Student connected!
 
 **To add more students**: Repeat Step 3 in new run windows (enable multiple instances in your IDE)
-
----
-
-### Method 2: Run from Command Line (No Scripts)
-
-#### Step 1: Compile the Project
-Open terminal/command prompt in the QuizHub folder:
-
-```cmd
-javac -d bin src\server\*.java src\client\*.java src\model\*.java src\common\*.java
-```
-
-#### Step 2: Start the Server
-Open **Terminal 1**:
-
-```cmd
-java -cp bin server.QuizServer
-```
-
-The Server UI opens → Click **"Start Server"**
-
-#### Step 3: Start Clients (Students)
-Open **Terminal 2** (for Student 1):
-
-```cmd
-java -cp bin client.QuizClient
-```
-
-Open **Terminal 3** (for Student 2):
-
-```cmd
-java -cp bin client.QuizClient
-```
-
-Open **Terminal 4** (for Student 3):
-
-```cmd
-java -cp bin client.QuizClient
-```
-
-Each client UI opens → Enter details and connect
 
 ---
 
@@ -118,23 +147,23 @@ On **Client** (Students):
 ### Main Classes to Run
 
 **Server (Teacher):**
-- Main class: `server.QuizServer`
-- Optional args: `8888` (port)
+- Command: `java -cp bin server.QuizServer`
+- Optional args: `java -cp bin server.QuizServer 9999` (custom port)
 
 **Client (Students):**
-- Main class: `client.QuizClient`
-- Optional args: `localhost 8888` (host port)
+- Command: `java -cp bin client.QuizClient`
+- Optional args: `java -cp bin client.QuizClient localhost 9999` (custom host/port)
 
 ### Command Line Quick Commands
 
 ```bash
-# Compile all
-javac -d bin src/**/*.java
+# Compile all (do this once)
+javac -d bin src\server\*.java src\client\*.java src\model\*.java src\common\*.java
 
-# Run server
+# Run server (Terminal 1)
 java -cp bin server.QuizServer
 
-# Run client
+# Run client (Terminal 2, 3, 4...)
 java -cp bin client.QuizClient
 
 # Run with custom port
@@ -163,8 +192,8 @@ Or enter IP in the login dialog
 
 ## 🎯 Sample Quiz Flow
 
-1. **Teacher**: Run `QuizServer.main()` → Start Server → Load Questions
-2. **Students**: Run `QuizClient.main()` multiple times → Connect
+1. **Teacher**: Run `java -cp bin server.QuizServer` → Start Server → Load Questions
+2. **Students**: Run `java -cp bin client.QuizClient` multiple times in different terminals → Connect
 3. **Teacher**: Click "Start Quiz"
 4. **Question 1**: 30 seconds → Students answer → See results
 5. **Questions 2-8**: Teacher clicks "Next Question" → Repeat
@@ -173,6 +202,11 @@ Or enter IP in the login dialog
 ---
 
 ## ⚠️ Common Issues
+
+**"client.QuizClient is not recognized" Error**
+- You need to use the full command: `java -cp bin client.QuizClient`
+- Make sure you're in the QuizHub directory
+- Ensure the `bin` folder exists (compile first if needed)
 
 **Can't connect?**
 - Ensure server is running first
@@ -191,7 +225,7 @@ Or enter IP in the login dialog
 **Class not found?**
 - Ensure you're in QuizHub directory
 - Check classpath: `-cp bin`
-- Recompile all files
+- Recompile all files: `javac -d bin src\server\*.java src\client\*.java src\model\*.java src\common\*.java`
 
 **Multiple clients in IDE?**
 - Enable "Allow parallel run" in run configuration
@@ -201,8 +235,8 @@ Or enter IP in the login dialog
 
 ## 💡 Pro Tips
 
-1. **IDE Users**: Set up run configurations once, then just click "Run" each time
-2. **Command Line**: Open multiple terminal windows before starting
+1. **Command Line Users**: Keep the compile command handy - you only need to run it once (or after code changes)
+2. **Multiple Terminals**: Open 4-5 terminal windows before starting - 1 for server, rest for clients
 3. **Testing**: Start with 2-3 clients first, then add more
 4. **Debugging**: Check server logs in the UI for connection issues
 5. **Network Mode**: Test on localhost first, then try network mode
