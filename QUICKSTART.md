@@ -4,9 +4,9 @@
 
 ### Step 1: Build the Application
 
-**Windows:**
-```cmd
-build.bat
+**Windows (PowerShell):**
+```powershell
+.\build.ps1
 ```
 
 **Linux/Mac:**
@@ -17,9 +17,9 @@ chmod +x build.sh
 
 ### Step 2: Start the Server (Teacher)
 
-**Windows:**
-```cmd
-run-server.bat
+**Windows (PowerShell):**
+```powershell
+.\run-server.ps1
 ```
 
 **Linux/Mac:**
@@ -34,9 +34,16 @@ You'll see the Teacher Dashboard window:
 
 ### Step 3: Start Clients (Students)
 
-**Windows:** Run `run-client.bat` (open multiple terminals for multiple students)
+**Windows (PowerShell):** 
+```powershell
+.\run-client.ps1
+```
+(Open multiple PowerShell windows for multiple students)
 
-**Linux/Mac:** Run `./run-client.sh`
+**Linux/Mac:** 
+```bash
+./run-client.sh
+```
 
 On each client:
 1. Enter Server Host: `localhost`
@@ -68,6 +75,22 @@ On **Client** (Students):
 - **Port:** 8888
 - **Time per question:** 30 seconds
 - **Points per question:** 10 (with time bonus up to 50%)
+
+### Build and Run Commands
+
+**Windows (PowerShell):**
+```powershell
+.\build.ps1         # Build the project
+.\run-server.ps1    # Start the server
+.\run-client.ps1    # Start a client
+```
+
+**Linux/Mac:**
+```bash
+./build.sh          # Build the project
+./run-server.sh     # Start the server
+./run-client.sh     # Start a client
+```
 
 ### Keyboard Shortcuts
 - Students can press Enter to submit answer
@@ -110,6 +133,11 @@ On **Client** (Students):
 - Edit the port in Protocol.java
 - Or start with: `java -cp bin server.QuizServer 9999`
 
+**PowerShell script not running (Windows)?**
+- Make sure you're using PowerShell (not Command Prompt)
+- Run from the project root directory
+- Use `.\` prefix before script names
+
 ---
 
 ## 📞 Need Help?
@@ -120,4 +148,3 @@ See **DEVELOPMENT_GUIDE.md** for:
 - Advanced features
 - Troubleshooting steps
 - Customization options
-

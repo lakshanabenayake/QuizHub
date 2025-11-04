@@ -46,17 +46,48 @@ A Java-based network programming application demonstrating socket communication,
 
 ## How to Run
 
-### Start the Server:
-```bash
-javac -d bin src/server/*.java src/common/*.java src/model/*.java
-java -cp bin server.QuizServer
+### Prerequisites
+- Java JDK 8 or higher
+- PowerShell (Windows) or Bash (Linux/Mac)
+
+### Build the Application:
+
+**Windows (PowerShell):**
+```powershell
+.\build.ps1
 ```
 
-### Start the Client:
+**Linux/Mac:**
 ```bash
-javac -d bin src/client/*.java src/common/*.java src/model/*.java
-java -cp bin client.QuizClient
+chmod +x build.sh
+./build.sh
 ```
+
+### Start the Server (Teacher):
+
+**Windows (PowerShell):**
+```powershell
+.\run-server.ps1
+```
+
+**Linux/Mac:**
+```bash
+./run-server.sh
+```
+
+### Start the Client (Students):
+
+**Windows (PowerShell):**
+```powershell
+.\run-client.ps1
+```
+
+**Linux/Mac:**
+```bash
+./run-client.sh
+```
+
+**Note:** Open multiple terminals/PowerShell windows to simulate multiple students.
 
 ## Project Structure
 ```
@@ -65,9 +96,14 @@ QuizHub/
 │   ├── server/          # Server-side components
 │   ├── client/          # Client-side components
 │   ├── common/          # Shared classes/interfaces
-│   ├── model/           # Data models
-│   └── ui/              # User interface components
-├── resources/           # Configuration files
+│   └── model/           # Data models
+├── bin/                 # Compiled classes
+├── build.ps1           # Build script (Windows)
+├── build.sh            # Build script (Linux/Mac)
+├── run-server.ps1      # Server launcher (Windows)
+├── run-server.sh       # Server launcher (Linux/Mac)
+├── run-client.ps1      # Client launcher (Windows)
+├── run-client.sh       # Client launcher (Linux/Mac)
 └── README.md
 ```
 
@@ -84,3 +120,5 @@ QuizHub/
 - Java Swing (included in JDK)
 - Java NIO (included in JDK)
 
+## Quick Start
+See **QUICKSTART.md** for a detailed 5-minute setup guide.
