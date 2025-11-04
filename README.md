@@ -109,11 +109,30 @@ QuizHub/
 
 ## Team Split Responsibilities
 
-1. **Server (Host)**: Socket server, client handler, session management
-2. **Client**: Socket client, UI interaction, answer submission
-3. **Question Manager**: Question CRUD, quiz logic, question broadcasting
-4. **Scoring**: Score calculation, leaderboard, result generation
-5. **UI**: Server GUI, Client GUI, real-time updates
+### Overview:
+This project is designed for **5 team members**, each focusing on specific Java Network Programming concepts:
+
+1. **Member 1 - Server Architecture & Socket Programming**
+   - ServerSocket, TCP/IP, Multi-threading, Thread Pools
+   - Files: `QuizServer.java`, `ClientHandler.java`
+
+2. **Member 2 - Client & Network Communication**
+   - Client Socket, I/O Streams, Asynchronous Communication
+   - Files: `QuizClient.java`, `ClientUI.java`
+
+3. **Member 3 - Question Manager & Data Serialization**
+   - Object Serialization, Protocol Design, Data Integrity
+   - Files: `QuestionManager.java`, `Question.java`, `QuizSession.java`
+
+4. **Member 4 - Scoring System & Real-time Updates**
+   - Thread Synchronization, Real-time Broadcasting, Atomic Operations
+   - Files: `ScoringSystem.java`, scoring integration
+
+5. **Member 5 - UI & Event-Driven Programming**
+   - Event-Driven Programming, Callbacks, Thread-Safe UI Updates
+   - Files: `ServerUI.java`, `ClientUI.java`
+
+📋 **For detailed work division, Java concepts, tasks, and deliverables for each member, see [TEAM_WORK_DIVISION.md](TEAM_WORK_DIVISION.md)**
 
 ## Dependencies
 - Java SE 8 or higher
