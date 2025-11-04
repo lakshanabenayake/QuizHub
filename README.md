@@ -48,46 +48,86 @@ A Java-based network programming application demonstrating socket communication,
 
 ### Prerequisites
 - Java JDK 8 or higher
-- PowerShell (Windows) or Bash (Linux/Mac)
+- Any Java IDE (IntelliJ IDEA, Eclipse, VS Code, NetBeans) OR Command Line
 
-### Build the Application:
+### Method 1: Run from IDE (Simplest - No Scripts Needed)
+
+Both server and client have main methods that can be executed directly.
+
+#### Run Server:
+1. Open `src/server/QuizServer.java` in your IDE
+2. Right-click → **Run 'QuizServer.main()'**
+3. Server UI opens → Click **"Start Server"** button
+4. Server ready on port 8888
+
+#### Run Client(s):
+1. Open `src/client/QuizClient.java` in your IDE
+2. Right-click → **Run 'QuizClient.main()'** (allow multiple instances)
+3. Enter: `localhost`, Student ID, Name → Click **"Connect to Quiz"**
+4. Repeat for multiple students
+
+**IDE Configuration (Optional)**:
+- Server: Main class = `server.QuizServer`, Args = `8888`
+- Client: Main class = `client.QuizClient`, Args = `localhost 8888`
+
+---
+
+### Method 2: Command Line (No Scripts)
+
+#### Compile:
+```cmd
+javac -d bin src\server\*.java src\client\*.java src\model\*.java src\common\*.java
+```
+
+#### Run Server (Terminal 1):
+```cmd
+java -cp bin server.QuizServer
+```
+
+#### Run Clients (Terminal 2, 3, 4...):
+```cmd
+java -cp bin client.QuizClient
+```
+
+**With Custom Port**:
+```cmd
+java -cp bin server.QuizServer 9999
+java -cp bin client.QuizClient localhost 9999
+```
+
+---
+
+### Method 3: Using PowerShell Scripts (Windows)
 
 **Windows (PowerShell):**
 ```powershell
-.\build.ps1
+.\build.ps1         # Build
+.\run-server.ps1    # Start server
+.\run-client.ps1    # Start client
 ```
 
 **Linux/Mac:**
 ```bash
 chmod +x build.sh
-./build.sh
+./build.sh          # Build
+./run-server.sh     # Start server
+./run-client.sh     # Start client
 ```
 
-### Start the Server (Teacher):
+---
 
-**Windows (PowerShell):**
-```powershell
-.\run-server.ps1
+### Running on Network (Different Computers)
+
+**Server Machine:**
+1. Find IP: `ipconfig` (Windows) or `ifconfig` (Linux/Mac)
+2. Run: `java -cp bin server.QuizServer`
+
+**Client Machines:**
+```cmd
+java -cp bin client.QuizClient 192.168.1.100 8888
 ```
 
-**Linux/Mac:**
-```bash
-./run-server.sh
-```
-
-### Start the Client (Students):
-
-**Windows (PowerShell):**
-```powershell
-.\run-client.ps1
-```
-
-**Linux/Mac:**
-```bash
-./run-client.sh
-```
-
-**Note:** Open multiple terminals/PowerShell windows to simulate multiple students.
+**Note:** Allow port 8888 in firewall settings
 
 ## Project Structure
 ```

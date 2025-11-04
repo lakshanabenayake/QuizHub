@@ -257,18 +257,113 @@ public void broadcast(String type, String data) {
 
 ## How to Run
 
-### Method 1: Using Build Scripts (Recommended)
+### Method 1: Run from IDE (Recommended for Development)
 
-#### Windows:
+Both the server and client have main methods that can be run directly from your IDE (IntelliJ IDEA, Eclipse, VS Code, NetBeans, etc.).
+
+#### Step 1: Compile the Project
+Most IDEs will auto-compile. If not, build the project first.
+
+#### Step 2: Run the Server
+1. Navigate to: `src/server/QuizServer.java`
+2. Right-click on the file → **Run 'QuizServer.main()'**
+3. The Server UI window will open
+4. Click **"Start Server"** button
+5. Server is now ready to accept client connections on port 8888
+
+**Alternative**: In your IDE's run configuration:
+- Main class: `server.QuizServer`
+- Program arguments (optional): `8888` (or any port number)
+- Working directory: Project root
+
+#### Step 3: Run Client(s)
+1. Navigate to: `src/client/QuizClient.java`
+2. Right-click on the file → **Run 'QuizClient.main()'**
+3. The Client UI window will open with login screen
+4. Enter server details (default: `localhost` and port `8888`)
+5. Enter Student ID and Name
+6. Click **"Connect to Quiz"**
+
+**To run multiple clients**: Simply repeat step 3 multiple times (each will open in a new window)
+
+**Alternative**: In your IDE's run configuration:
+- Main class: `client.QuizClient`
+- Program arguments (optional): `localhost 8888`
+- Allow multiple instances: Enable this option
+
+---
+
+### Method 2: Command Line (Without Scripts)
+
+#### Step 1: Compile All Files
 ```cmd
+# Windows Command Prompt / PowerShell
+javac -d bin src\server\*.java src\client\*.java src\model\*.java src\common\*.java
+
+# Linux/Mac Terminal
+javac -d bin src/server/*.java src/client/*.java src/model/*.java src/common/*.java
+```
+
+#### Step 2: Run the Server
+Open a terminal/command prompt and run:
+
+```cmd
+# Windows
+java -cp bin server.QuizServer
+
+# With custom port
+java -cp bin server.QuizServer 9999
+```
+
+```bash
+# Linux/Mac
+java -cp bin server.QuizServer
+
+# With custom port
+java -cp bin server.QuizServer 9999
+```
+
+#### Step 3: Run Client(s)
+Open **another** terminal/command prompt for each client:
+
+```cmd
+# Windows - Default (localhost:8888)
+java -cp bin client.QuizClient
+
+# With specific host and port
+java -cp bin client.QuizClient localhost 8888
+
+# Connect to remote server
+java -cp bin client.QuizClient 192.168.1.100 8888
+```
+
+```bash
+# Linux/Mac - Default (localhost:8888)
+java -cp bin client.QuizClient
+
+# With specific host and port
+java -cp bin client.QuizClient localhost 8888
+
+# Connect to remote server
+java -cp bin client.QuizClient 192.168.1.100 8888
+```
+
+**To simulate multiple students**: Open multiple terminals and run the client command in each.
+
+---
+
+### Method 3: Using Build Scripts (If Available)
+
+#### Windows (PowerShell):
+```powershell
 # Step 1: Build the project
-build.bat
+.\build.ps1
 
 # Step 2: Start the server (in one terminal)
-run-server.bat
+.\run-server.ps1
 
 # Step 3: Start client(s) (in another terminal)
-run-client.bat
+.\run-client.ps1
 ```
 
 #### Linux/Mac:
@@ -283,31 +378,51 @@ run-client.bat
 ./run-client.sh
 ```
 
-### Method 2: Manual Compilation
+---
 
+### Quick Start Summary
+
+**Simplest Way (IDE)**:
+1. Open project in your IDE
+2. Run `server.QuizServer` main method → Click "Start Server"
+3. Run `client.QuizClient` main method → Enter details and connect
+4. Repeat step 3 for multiple students
+
+**Command Line**:
 ```bash
-# Create bin directory
-mkdir bin
-
-# Compile all source files
-javac -d bin -sourcepath src src/**/*.java
-
-# Run server
+# Terminal 1 (Server)
+javac -d bin src/**/*.java
 java -cp bin server.QuizServer
 
-# Run client (in another terminal)
+# Terminal 2 (Client 1)
+java -cp bin client.QuizClient
+
+# Terminal 3 (Client 2)
+java -cp bin client.QuizClient
+
+# Terminal 4 (Client 3)
 java -cp bin client.QuizClient
 ```
 
-### Method 3: With Custom Port
+---
 
-```bash
-# Server with custom port
-java -cp bin server.QuizServer 9999
+### Running on Network (Different Machines)
 
-# Client connecting to custom port
-java -cp bin client.QuizClient localhost 9999
-```
+#### On Server Machine:
+1. Find your IP address:
+   - Windows: `ipconfig` (look for IPv4 Address)
+   - Linux/Mac: `ifconfig` or `ip addr` (look for inet)
+2. Run server: `java -cp bin server.QuizServer`
+3. Note your IP address (e.g., 192.168.1.100)
+
+#### On Client Machines:
+1. Run client with server IP:
+   ```bash
+   java -cp bin client.QuizClient 192.168.1.100 8888
+   ```
+2. Or enter server IP in the login dialog
+
+**Note**: Ensure firewall allows connections on port 8888
 
 ---
 
@@ -701,4 +816,3 @@ For questions or issues, refer to the troubleshooting section or review the inli
 ---
 
 **Happy Coding! 🚀**
-
