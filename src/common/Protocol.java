@@ -22,12 +22,24 @@ public class Protocol {
     public static final String ERROR = "ERROR";
     public static final String ACK = "ACK";
 
+    // New message types for advanced features
+    public static final String UDP_BROADCAST = "UDP_BROADCAST";
+    public static final String CHAT_MESSAGE = "CHAT_MESSAGE";
+    public static final String ECHO_REQUEST = "ECHO_REQUEST";
+    public static final String ECHO_RESPONSE = "ECHO_RESPONSE";
+    public static final String HEARTBEAT = "HEARTBEAT";
+    public static final String TIME_SYNC = "TIME_SYNC";
+
     // Message Delimiters
     public static final String DELIMITER = "|";
     public static final String FIELD_SEPARATOR = "~";
 
     // Server Configuration
     public static final int DEFAULT_PORT = 8888;
+    public static final int UDP_PORT = 8889;
+    public static final int CHAT_PORT = 8890;
+    public static final int ECHO_TCP_PORT = 8891;
+    public static final int ECHO_UDP_PORT = 8892;
     public static final int BUFFER_SIZE = 4096;
 
     /**
