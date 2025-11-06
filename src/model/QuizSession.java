@@ -1,21 +1,27 @@
 package model;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * QuizSession manages the state of an active quiz
  */
-public class QuizSession {
-    private String sessionId;
-    private List<Question> questions;
+public class QuizSession implements Serializable {
+    private static final long serialVersionUID = 1L;
+
+    private final String sessionId;
+    private final List<Question> questions;
     private int currentQuestionIndex;
-    private Map<String, Student> students; // studentId -> Student
+    private final Map<String, Student> students; // studentId -> Student
     private boolean isActive;
     private long sessionStartTime;
     private long currentQuestionStartTime;
 
     public QuizSession(String sessionId) {
+        if (sessionId == null || sessionId.trim().isEmpty()) {
+            throw new IllegalArgumentException("sessionId required");
+        }
         this.sessionId = sessionId;
         this.questions = new ArrayList<>();
         this.currentQuestionIndex = -1;
@@ -24,18 +30,22 @@ public class QuizSession {
     }
 
     public synchronized void addQuestion(Question question) {
+        if (question == null) return;
         questions.add(question);
     }
 
     public synchronized void addStudent(Student student) {
+        if (student == null) return;
         students.put(student.getStudentId(), student);
     }
 
     public synchronized void removeStudent(String studentId) {
+        if (studentId == null) return;
         students.remove(studentId);
     }
 
     public Student getStudent(String studentId) {
+        if (studentId == null) return null;
         return students.get(studentId);
     }
 
@@ -75,13 +85,13 @@ public class QuizSession {
         return questions.size();
     }
 
-    public void start() {
+    public synchronized void start() {
         this.isActive = true;
         this.sessionStartTime = System.currentTimeMillis();
         this.currentQuestionIndex = -1;
     }
 
-    public void end() {
+    public synchronized void end() {
         this.isActive = false;
     }
 
@@ -131,4 +141,3 @@ public class QuizSession {
         return isCorrect;
     }
 }
-
