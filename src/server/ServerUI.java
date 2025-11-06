@@ -27,6 +27,15 @@ public class ServerUI extends JFrame {
     private DefaultListModel<String> questionListModel;
     private JList<String> questionList;
 
+    // Member 5 - UI & Event-Driven Programming: Master Timer Components
+    private JLabel masterTimerLabel;           // Displays synchronized timer in MM:SS format
+    private JButton pauseResumeBtn;            // Pause/Resume quiz timer
+    private JButton extendTimeBtn;             // Extend time by 30 seconds
+    private JButton skipQuestionBtn;           // Skip to next question
+    private JButton forceNextBtn;              // Force next question immediately
+    private JLabel answerCountLabel;           // Real-time answer tracking (Answered: X/Y)
+    private boolean timerPaused = false;       // Track timer state
+
     public ServerUI(QuizServer server) {
         this.server = server;
         initComponents();
@@ -78,8 +87,12 @@ public class ServerUI extends JFrame {
     }
 
     private JPanel createControlPanel() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        panel.setBorder(BorderFactory.createTitledBorder("Server Controls"));
+        // Main container with vertical layout for multiple rows
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBorder(BorderFactory.createTitledBorder("Server Controls"));
+
+        // Top row - Server and Quiz controls
+        JPanel topRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
         startServerBtn = new JButton("Start Server");
         stopServerBtn = new JButton("Stop Server");
@@ -99,25 +112,207 @@ public class ServerUI extends JFrame {
         studentsCountLabel = new JLabel("Students: 0");
         studentsCountLabel.setFont(new Font("Arial", Font.BOLD, 14));
 
-        // Action listeners
+        // Event-Driven Programming: ActionListeners respond to user button clicks
         startServerBtn.addActionListener(e -> startServer());
         stopServerBtn.addActionListener(e -> stopServer());
         startQuizBtn.addActionListener(e -> startQuiz());
         nextQuestionBtn.addActionListener(e -> nextQuestion());
         endQuizBtn.addActionListener(e -> endQuiz());
 
-        panel.add(startServerBtn);
-        panel.add(stopServerBtn);
-        panel.add(new JSeparator(SwingConstants.VERTICAL));
-        panel.add(startQuizBtn);
-        panel.add(nextQuestionBtn);
-        panel.add(endQuizBtn);
-        panel.add(Box.createHorizontalStrut(20));
-        panel.add(statusLabel);
-        panel.add(Box.createHorizontalStrut(20));
-        panel.add(studentsCountLabel);
+        topRow.add(startServerBtn);
+        topRow.add(stopServerBtn);
+        topRow.add(new JSeparator(SwingConstants.VERTICAL));
+        topRow.add(startQuizBtn);
+        topRow.add(nextQuestionBtn);
+        topRow.add(endQuizBtn);
+        topRow.add(Box.createHorizontalStrut(20));
+        topRow.add(statusLabel);
+        topRow.add(Box.createHorizontalStrut(20));
+        topRow.add(studentsCountLabel);
 
-        return panel;
+        // Bottom row - Master Timer Display and Timer Controls (Member 5 Enhancement)
+        JPanel bottomRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
+
+        // Master Timer Display - shows synchronized time in MM:SS format
+        masterTimerLabel = new JLabel("Timer: --:--");
+        masterTimerLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        masterTimerLabel.setForeground(Color.BLUE);
+        masterTimerLabel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(Color.GRAY, 2),
+            BorderFactory.createEmptyBorder(5, 10, 5, 10)
+        ));
+
+        // Real-time Answer Tracking Counter
+        answerCountLabel = new JLabel("Answered: 0/0");
+        answerCountLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        answerCountLabel.setForeground(new Color(0, 100, 180));
+
+        // Timer Control Buttons (Event-Driven Administrative Controls)
+        pauseResumeBtn = new JButton("Pause Quiz");
+        extendTimeBtn = new JButton("Extend Time (+30s)");
+        skipQuestionBtn = new JButton("Skip Question");
+        forceNextBtn = new JButton("Force Next");
+
+        // Initially disabled until quiz starts
+        pauseResumeBtn.setEnabled(false);
+        extendTimeBtn.setEnabled(false);
+        skipQuestionBtn.setEnabled(false);
+        forceNextBtn.setEnabled(false);
+
+        // Event listeners for timer controls - trigger network events
+        pauseResumeBtn.addActionListener(e -> handlePauseResume());
+        extendTimeBtn.addActionListener(e -> handleExtendTime());
+        skipQuestionBtn.addActionListener(e -> handleSkipQuestion());
+        forceNextBtn.addActionListener(e -> handleForceNext());
+
+        bottomRow.add(masterTimerLabel);
+        bottomRow.add(Box.createHorizontalStrut(15));
+        bottomRow.add(answerCountLabel);
+        bottomRow.add(Box.createHorizontalStrut(20));
+        bottomRow.add(new JSeparator(SwingConstants.VERTICAL));
+        bottomRow.add(pauseResumeBtn);
+        bottomRow.add(extendTimeBtn);
+        bottomRow.add(skipQuestionBtn);
+        bottomRow.add(forceNextBtn);
+
+        // Combine rows
+        JPanel combined = new JPanel(new GridLayout(2, 1, 5, 5));
+        combined.add(topRow);
+        combined.add(bottomRow);
+        mainPanel.add(combined, BorderLayout.CENTER);
+
+        return mainPanel;
+    }
+
+    /**
+     * Event-Driven Programming: Handles pause/resume timer control
+     * Broadcasts timer control message to all connected clients
+     */
+    private void handlePauseResume() {
+        timerPaused = !timerPaused;
+        if (timerPaused) {
+            server.pauseTimer();
+            pauseResumeBtn.setText("Resume Quiz");
+            pauseResumeBtn.setBackground(new Color(0, 150, 0));
+            appendLog("Quiz timer PAUSED by administrator");
+        } else {
+            server.resumeTimer();
+            pauseResumeBtn.setText("Pause Quiz");
+            pauseResumeBtn.setBackground(null);
+            appendLog("Quiz timer RESUMED by administrator");
+        }
+    }
+
+    /**
+     * Event-Driven Programming: Handles extend time control
+     * Adds 30 seconds to current question timer
+     */
+    private void handleExtendTime() {
+        server.extendTimer(30);
+        // Thread-safe UI update showing confirmation
+        SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(this,
+                "Added 30 seconds to current question timer",
+                "Time Extended", JOptionPane.INFORMATION_MESSAGE);
+        });
+        appendLog("Administrator extended time by 30 seconds");
+    }
+
+    /**
+     * Event-Driven Programming: Handles skip question with confirmation
+     * Shows dialog before skipping to prevent accidental clicks
+     */
+    private void handleSkipQuestion() {
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "Skip current question and move to next?\nNo answers will be recorded.",
+            "Confirm Skip", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            server.skipCurrentQuestion();
+            appendLog("Administrator skipped current question");
+        }
+    }
+
+    /**
+     * Event-Driven Programming: Handles force next with confirmation
+     * Immediately advances even if students haven't answered
+     */
+    private void handleForceNext() {
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "Force advance to next question?\nStudents who haven't answered will get 0 points.",
+            "Confirm Force Next", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            server.forceNextQuestion();
+            appendLog("Administrator forced next question");
+        }
+    }
+
+    /**
+     * Thread-Safe UI Update: Updates master timer display
+     * Called from server's timer thread - must use SwingUtilities.invokeLater()
+     * @param remainingSeconds Time remaining in seconds
+     * @param state Timer state: "normal", "warning", or "critical"
+     */
+    public void updateMasterTimer(int remainingSeconds, String state) {
+        SwingUtilities.invokeLater(() -> {
+            // Format as MM:SS
+            int minutes = remainingSeconds / 60;
+            int seconds = remainingSeconds % 60;
+            masterTimerLabel.setText(String.format("Timer: %02d:%02d", minutes, seconds));
+
+            // Change color based on urgency (demonstrates event-driven state changes)
+            switch (state) {
+                case "critical":
+                    masterTimerLabel.setForeground(Color.RED);
+                    break;
+                case "warning":
+                    masterTimerLabel.setForeground(Color.ORANGE);
+                    break;
+                default:
+                    masterTimerLabel.setForeground(Color.BLUE);
+                    break;
+            }
+        });
+    }
+
+    /**
+     * Thread-Safe UI Update: Updates answer tracking counter
+     * Shows real-time count of students who have answered current question
+     */
+    public void updateAnswerCount(int answeredCount, int totalStudents) {
+        SwingUtilities.invokeLater(() -> {
+            answerCountLabel.setText(String.format("Answered: %d/%d", answeredCount, totalStudents));
+
+            // Visual feedback when all students have answered
+            if (answeredCount == totalStudents && totalStudents > 0) {
+                answerCountLabel.setForeground(new Color(0, 150, 0)); // Green
+            } else {
+                answerCountLabel.setForeground(new Color(0, 100, 180)); // Blue
+            }
+        });
+    }
+
+    /**
+     * Enables/disables timer control buttons based on quiz state
+     */
+    public void setTimerControlsEnabled(boolean enabled) {
+        SwingUtilities.invokeLater(() -> {
+            pauseResumeBtn.setEnabled(enabled);
+            extendTimeBtn.setEnabled(enabled);
+            skipQuestionBtn.setEnabled(enabled);
+            forceNextBtn.setEnabled(enabled);
+
+            if (!enabled) {
+                // Reset timer display when quiz not active
+                masterTimerLabel.setText("Timer: --:--");
+                masterTimerLabel.setForeground(Color.BLUE);
+                answerCountLabel.setText("Answered: 0/0");
+                timerPaused = false;
+                pauseResumeBtn.setText("Pause Quiz");
+                pauseResumeBtn.setBackground(null);
+            }
+        });
     }
 
     private JPanel createQuestionPanel() {

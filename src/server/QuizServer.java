@@ -27,6 +27,13 @@ public class QuizServer {
     private ScheduledFuture<?> currentQuestionTimer;
     private ScheduledExecutorService scheduler;
 
+    // Member 5 - Master Timer Management (UI & Event-Driven Programming)
+    private ScheduledFuture<?> timerBroadcastTask;    // Periodic timer sync broadcasts
+    private int currentQuestionTimeLimit = 0;          // Time limit for current question
+    private long questionStartTime = 0;                // When current question started
+    private boolean timerPaused = false;               // Is timer paused?
+    private int pausedTimeRemaining = 0;               // Time remaining when paused
+
     public QuizServer(int port) {
         this.port = port;
         this.clients = new CopyOnWriteArrayList<>();
@@ -35,7 +42,7 @@ public class QuizServer {
         this.scoringSystem = new ScoringSystem(session);
         this.threadPool = Executors.newCachedThreadPool();
         this.questionAnswers = new ConcurrentHashMap<>();
-        this.scheduler = Executors.newScheduledThreadPool(1);
+        this.scheduler = Executors.newScheduledThreadPool(2); // Increased for timer broadcasts
         this.running = false;
     }
 
@@ -132,6 +139,15 @@ public class QuizServer {
                 " of " + session.getTotalQuestions());
 
             broadcast(Protocol.QUESTION, question.toProtocolString());
+
+            // Member 5 - Start master timer synchronization for this question
+            startMasterTimer(question.getTimeLimit());
+
+            // Enable timer controls in UI
+            if (ui != null) {
+                ui.setTimerControlsEnabled(true);
+            }
+
             updateUI();
 
             // Auto-advance after time limit (optional)
@@ -139,6 +155,184 @@ public class QuizServer {
         } else {
             endQuiz();
         }
+    }
+
+    /**
+     * Member 5 - Starts master timer and broadcasts sync messages to all clients
+     * This demonstrates network synchronization and event-driven updates
+     */
+    private void startMasterTimer(int timeLimit) {
+        // Stop any existing timer
+        stopMasterTimer();
+
+        // Initialize timer state
+        currentQuestionTimeLimit = timeLimit;
+        questionStartTime = System.currentTimeMillis();
+        timerPaused = false;
+
+        // Reset answer tracking for new question
+        if (session.getCurrentQuestion() != null) {
+            questionAnswers.put(session.getCurrentQuestion().getId(), ConcurrentHashMap.newKeySet());
+        }
+
+        // Schedule periodic timer broadcasts (every 1 second)
+        timerBroadcastTask = scheduler.scheduleAtFixedRate(() -> {
+            if (!timerPaused) {
+                int remaining = getRemainingTime();
+                String state = getTimerState(remaining);
+
+                // Broadcast to all clients (network synchronization)
+                broadcast(Protocol.TIMER_SYNC, remaining + "~" + state);
+
+                // Update server UI (thread-safe update)
+                if (ui != null) {
+                    ui.updateMasterTimer(remaining, state);
+
+                    // Update answer count display
+                    if (session.getCurrentQuestion() != null) {
+                        int questionId = session.getCurrentQuestion().getId();
+                        Set<String> answered = questionAnswers.get(questionId);
+                        int answeredCount = answered != null ? answered.size() : 0;
+                        ui.updateAnswerCount(answeredCount, getConnectedClientsCount());
+                    }
+                }
+            }
+        }, 0, 1, TimeUnit.SECONDS);
+
+        log("Master timer started: " + timeLimit + " seconds");
+    }
+
+    /**
+     * Stops master timer broadcasts
+     */
+    private void stopMasterTimer() {
+        if (timerBroadcastTask != null) {
+            timerBroadcastTask.cancel(false);
+            timerBroadcastTask = null;
+        }
+    }
+
+    /**
+     * Calculates remaining time based on current state
+     */
+    private int getRemainingTime() {
+        if (timerPaused) {
+            return pausedTimeRemaining;
+        }
+
+        long elapsed = (System.currentTimeMillis() - questionStartTime) / 1000;
+        int remaining = currentQuestionTimeLimit - (int)elapsed;
+        return Math.max(0, remaining);
+    }
+
+    /**
+     * Determines timer state based on remaining time
+     * @return "normal", "warning", or "critical"
+     */
+    private String getTimerState(int remainingSeconds) {
+        if (remainingSeconds <= 10) {
+            return "critical";  // Last 10 seconds - RED
+        } else if (remainingSeconds <= 30) {
+            return "warning";   // Last 30 seconds - ORANGE
+        } else {
+            return "normal";    // Normal - BLUE
+        }
+    }
+
+    /**
+     * Member 5 - Pauses the quiz timer (administrative control)
+     * Event-driven: UI button triggers network event affecting all clients
+     */
+    public synchronized void pauseTimer() {
+        if (!timerPaused) {
+            timerPaused = true;
+            pausedTimeRemaining = getRemainingTime();
+
+            // Broadcast pause control to all clients
+            broadcast(Protocol.TIMER_CONTROL, "pause~");
+            log("Timer paused at " + pausedTimeRemaining + " seconds remaining");
+        }
+    }
+
+    /**
+     * Member 5 - Resumes the quiz timer
+     */
+    public synchronized void resumeTimer() {
+        if (timerPaused) {
+            timerPaused = false;
+            // Adjust start time to account for pause duration
+            questionStartTime = System.currentTimeMillis() -
+                               ((currentQuestionTimeLimit - pausedTimeRemaining) * 1000L);
+
+            // Broadcast resume control to all clients
+            broadcast(Protocol.TIMER_CONTROL, "resume~");
+            log("Timer resumed with " + pausedTimeRemaining + " seconds remaining");
+        }
+    }
+
+    /**
+     * Member 5 - Extends current question time by specified seconds
+     */
+    public synchronized void extendTimer(int additionalSeconds) {
+        currentQuestionTimeLimit += additionalSeconds;
+
+        // Broadcast extend control to all clients
+        broadcast(Protocol.TIMER_CONTROL, "extend~" + additionalSeconds);
+        log("Timer extended by " + additionalSeconds + " seconds");
+    }
+
+    /**
+     * Member 5 - Skips current question (no scores recorded)
+     */
+    public synchronized void skipCurrentQuestion() {
+        log("Skipping current question");
+        stopMasterTimer();
+
+        if (session.isActive() && session.hasMoreQuestions()) {
+            sendNextQuestion();
+        } else if (session.isActive()) {
+            endQuiz();
+        }
+    }
+
+    /**
+     * Member 5 - Forces next question immediately
+     */
+    public synchronized void forceNextQuestion() {
+        log("Forcing next question");
+        stopMasterTimer();
+
+        if (session.isActive() && session.hasMoreQuestions()) {
+            sendNextQuestion();
+        } else if (session.isActive()) {
+            endQuiz();
+        }
+    }
+
+    /**
+     * Ends the quiz and broadcasts results
+     */
+    public synchronized void endQuiz() {
+        if (!session.isActive()) return;
+
+        // Stop master timer
+        stopMasterTimer();
+
+        // Disable timer controls in UI
+        if (ui != null) {
+            ui.setTimerControlsEnabled(false);
+        }
+
+        session.end();
+        log("Quiz ended");
+
+        // Generate results
+        String results = scoringSystem.generateResultsSummary();
+        log(results);
+
+        // Broadcast results to all clients
+        broadcast(Protocol.QUIZ_END, scoringSystem.getLeaderboardProtocolString());
+        updateUI();
     }
 
     /**
@@ -160,21 +354,11 @@ public class QuizServer {
     }
 
     /**
-     * Ends the quiz and broadcasts results
+     * Gets count of students who answered current question
      */
-    public synchronized void endQuiz() {
-        if (!session.isActive()) return;
-
-        session.end();
-        log("Quiz ended");
-
-        // Generate results
-        String results = scoringSystem.generateResultsSummary();
-        log(results);
-
-        // Broadcast results to all clients
-        broadcast(Protocol.QUIZ_END, scoringSystem.getLeaderboardProtocolString());
-        updateUI();
+    public int getAnsweredCount(int questionId) {
+        Set<String> answered = questionAnswers.get(questionId);
+        return answered != null ? answered.size() : 0;
     }
 
     /**

@@ -21,6 +21,9 @@ public class Protocol {
     public static final String SCORE_UPDATE = "SCORE_UPDATE";
     public static final String LEADERBOARD = "LEADERBOARD";
     public static final String TIME_UPDATE = "TIME_UPDATE";
+    // Timer synchronization message types (Member 5 - UI & Event-Driven Programming)
+    public static final String TIMER_SYNC = "TIMER_SYNC";      // Server broadcasts timer state to all clients
+    public static final String TIMER_CONTROL = "TIMER_CONTROL"; // Server sends timer control commands
     public static final String RESULT = "RESULT";
     public static final String MESSAGE = "MESSAGE";
     public static final String ERROR = "ERROR";

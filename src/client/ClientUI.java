@@ -44,6 +44,10 @@ public class ClientUI extends JFrame {
     private int currentScore;
     private boolean answerSubmitted;
 
+    // Member 5 - UI & Event-Driven Programming: Synchronized timer state
+    private int serverRemainingTime = 0;       // Time from server (synchronized)
+    private boolean useServerTimer = false;     // Whether to use server-synchronized timer
+
     // Card layout components
     private CardLayout cardLayout;
     private JPanel cardPanel;
@@ -495,6 +499,72 @@ public class ClientUI extends JFrame {
             questionNumberLabel.setText("Quiz Ended");
             timerLabel.setText("--");
             submitBtn.setEnabled(false);
+        });
+    }
+
+    /**
+     * Member 5 - Network-Synchronized Timer Update (MUST KEEP Feature)
+     * Thread-Safe UI Update: Handles timer synchronization messages from server
+     * This demonstrates network-driven event updates with thread safety
+     *
+     * @param remainingSeconds Time remaining from server
+     * @param state Timer state: "normal", "warning", or "critical"
+     */
+    public void handleTimerSync(int remainingSeconds, String state) {
+        // Update synchronized timer state (network-driven data)
+        this.serverRemainingTime = remainingSeconds;
+        this.useServerTimer = true;
+
+        // Thread-safe UI update using SwingUtilities.invokeLater()
+        // This ensures UI updates happen on the Event Dispatch Thread (EDT)
+        SwingUtilities.invokeLater(() -> {
+            // Format timer as MM:SS
+            int minutes = remainingSeconds / 60;
+            int seconds = remainingSeconds % 60;
+            timerLabel.setText(String.format("Time: %02d:%02d", minutes, seconds));
+
+            // Event-Driven State Changes: Color changes based on urgency
+            switch (state) {
+                case "critical":
+                    // Last 10 seconds - RED (urgent)
+                    timerLabel.setForeground(Color.RED);
+                    break;
+                case "warning":
+                    // Last 30 seconds - ORANGE (caution)
+                    timerLabel.setForeground(Color.ORANGE);
+                    break;
+                default:
+                    // Normal state - BLUE
+                    timerLabel.setForeground(Color.BLUE);
+                    break;
+            }
+
+            // Auto-submit when time reaches zero
+            if (remainingSeconds <= 0 && !answerSubmitted && currentQuestion != null) {
+                autoSubmitAnswer();
+            }
+        });
+    }
+
+    /**
+     * Handles timer control messages from server (pause/resume/extend)
+     * Demonstrates server-side administrative control affecting client UI
+     */
+    public void handleTimerControl(String control, String data) {
+        SwingUtilities.invokeLater(() -> {
+            switch (control) {
+                case "pause":
+                    showMessage("Server", "Quiz timer PAUSED by instructor");
+                    timerLabel.setForeground(Color.GRAY);
+                    break;
+                case "resume":
+                    showMessage("Server", "Quiz timer RESUMED");
+                    break;
+                case "extend":
+                    int additionalTime = Integer.parseInt(data);
+                    showMessage("Server", "Instructor added " + additionalTime + " seconds!");
+                    break;
+            }
         });
     }
 
