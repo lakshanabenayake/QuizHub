@@ -199,6 +199,30 @@ public class QuizClient {
                     ui.handleLeaderboard(data);
                     break;
 
+                 case Protocol.TIMER_SYNC:
+                    handleTimerSync(data);
+                    break;
+
+                case Protocol.TIMER_CONTROL:
+                    handleTimerControl(data);
+                    break;
+
+                // Network Monitoring: PING/PONG for latency measurement
+                case Protocol.PING:
+                    // Server pinging us - respond immediately
+                    sendMessage(Protocol.PONG, data);
+                    break;
+
+                case Protocol.PONG:
+                    // Response to our ping - calculate latency
+                    try {
+                        long sentTime = Long.parseLong(data);
+                        ui.handlePong(sentTime);
+                    } catch (NumberFormatException e) {
+                        log("Invalid PONG data: " + data);
+                    }
+                    break;
+
                 case Protocol.QUIZ_END:
                     ui.handleQuizEnd(data);
                     break;
@@ -224,6 +248,30 @@ public class QuizClient {
             int totalScore = Integer.parseInt(parts[3]);
 
             ui.handleAnswerResult(correct, pointsEarned, message, totalScore);
+        }
+
+        /**
+         * Handles timer synchronization from server
+         * Format: remainingSeconds~state (e.g., "120~normal", "25~warning", "8~critical")
+         */
+        private void handleTimerSync(String data) {
+            String[] parts = data.split("~");
+            int remainingSeconds = Integer.parseInt(parts[0]);
+            String state = parts.length > 1 ? parts[1] : "normal";
+
+            ui.handleTimerSync(remainingSeconds, state);
+        }
+
+        /**
+         * Handles timer control commands from server
+         * Format: control~data (e.g., "pause~", "resume~", "extend~30")
+         */
+        private void handleTimerControl(String data) {
+            String[] parts = data.split("~");
+            String control = parts[0];
+            String controlData = parts.length > 1 ? parts[1] : "";
+
+            ui.handleTimerControl(control, controlData);
         }
     }
 
@@ -257,4 +305,3 @@ public class QuizClient {
         });
     }
 }
-

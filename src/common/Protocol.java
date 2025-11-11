@@ -21,10 +21,22 @@ public class Protocol {
     public static final String SCORE_UPDATE = "SCORE_UPDATE";
     public static final String LEADERBOARD = "LEADERBOARD";
     public static final String TIME_UPDATE = "TIME_UPDATE";
+    // Timer synchronization message types
+    public static final String TIMER_SYNC = "TIMER_SYNC";      // Server broadcasts timer state to all clients
+    public static final String TIMER_CONTROL = "TIMER_CONTROL"; // Server sends timer control commands
     public static final String RESULT = "RESULT";
     public static final String MESSAGE = "MESSAGE";
     public static final String ERROR = "ERROR";
     public static final String ACK = "ACK";
+
+    // Enhanced protocol types for new features
+    public static final String CONNECTION_STATUS = "CONNECTION_STATUS";  // Connection quality updates
+    public static final String ANSWER_PROGRESS = "ANSWER_PROGRESS";      // Real-time answer tracking
+    public static final String PING = "PING";                            // Latency measurement
+    public static final String PONG = "PONG";                            // Ping response
+    public static final String TOAST_NOTIFICATION = "TOAST_NOTIFICATION"; // Event notifications
+    public static final String LATE_JOIN = "LATE_JOIN";                  // Mid-quiz join handling
+    public static final String QUIZ_PROGRESS = "QUIZ_PROGRESS";          // Overall quiz progress
 
     // Message Delimiters
     public static final String DELIMITER = "|";
