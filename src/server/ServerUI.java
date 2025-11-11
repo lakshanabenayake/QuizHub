@@ -201,15 +201,26 @@ public class ServerUI extends JFrame {
     }
 
     private void stopServer() {
+    // Disable buttons immediately (prevent double-clicks)
+    startServerBtn.setEnabled(false);
+    stopServerBtn.setEnabled(false);
+    startQuizBtn.setEnabled(false);
+    nextQuestionBtn.setEnabled(false);
+    endQuizBtn.setEnabled(false);
+    statusLabel.setText("Server: Stopping...");
+
+    // Stop on a background thread so the UI stays responsive
+    new Thread(() -> {
         server.stop();
-        startServerBtn.setEnabled(true);
-        stopServerBtn.setEnabled(false);
-        startQuizBtn.setEnabled(false);
-        nextQuestionBtn.setEnabled(false);
-        endQuizBtn.setEnabled(false);
-        statusLabel.setText("Server: Stopped");
-        statusLabel.setForeground(Color.RED);
-    }
+        SwingUtilities.invokeLater(() -> {
+            statusLabel.setText("Server: Stopped");
+            statusLabel.setForeground(Color.RED);
+            startServerBtn.setEnabled(true);
+            stopServerBtn.setEnabled(false);
+        });
+    }, "StopServerThread").start();
+}
+
 
     private void startQuiz() {
         List<Question> questions = server.getQuestionManager().getAllQuestions();
