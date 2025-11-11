@@ -43,7 +43,7 @@ public class QuizClient {
             this.studentId = studentId;
             this.studentName = studentName;
 
-            // Send join message
+            // Send join message. Used custom protocol format
             sendMessage(Protocol.STUDENT_JOIN, studentId + "~" + studentName);
 
             // Start listening for messages
