@@ -27,12 +27,12 @@ public class QuizServer {
     private ScheduledFuture<?> currentQuestionTimer;
     private ScheduledExecutorService scheduler;
 
-    // Member 5 - Master Timer Management (UI & Event-Driven Programming)
-    private ScheduledFuture<?> timerBroadcastTask;    // Periodic timer sync broadcasts
-    private int currentQuestionTimeLimit = 0;          // Time limit for current question
-    private long questionStartTime = 0;                // When current question started
-    private boolean timerPaused = false;               // Is timer paused?
-    private int pausedTimeRemaining = 0;               // Time remaining when paused
+    // Master Timer Management
+    private ScheduledFuture<?> timerBroadcastTask;
+    private int currentQuestionTimeLimit = 0;
+    private long questionStartTime = 0;
+    private boolean timerPaused = false;
+    private int pausedTimeRemaining = 0;
 
     public QuizServer(int port) {
         this.port = port;
@@ -146,6 +146,8 @@ public class QuizServer {
             // Enable timer controls in UI
             if (ui != null) {
                 ui.setTimerControlsEnabled(true);
+                // 6️⃣ Update quiz progress in UI
+                ui.updateQuizProgress(session.getCurrentQuestionIndex() + 1, session.getTotalQuestions());
             }
 
             updateUI();
@@ -169,6 +171,7 @@ public class QuizServer {
         currentQuestionTimeLimit = timeLimit;
         questionStartTime = System.currentTimeMillis();
         timerPaused = false;
+        pausedTimeRemaining = 0;
 
         // Reset answer tracking for new question
         if (session.getCurrentQuestion() != null) {
@@ -177,24 +180,22 @@ public class QuizServer {
 
         // Schedule periodic timer broadcasts (every 1 second)
         timerBroadcastTask = scheduler.scheduleAtFixedRate(() -> {
-            if (!timerPaused) {
-                int remaining = getRemainingTime();
-                String state = getTimerState(remaining);
+            int remaining = getRemainingTime();
+            String state = getTimerState(remaining);
 
-                // Broadcast to all clients (network synchronization)
-                broadcast(Protocol.TIMER_SYNC, remaining + "~" + state);
+            // Broadcast to all clients (network synchronization)
+            broadcast(Protocol.TIMER_SYNC, remaining + "~" + state);
 
-                // Update server UI (thread-safe update)
-                if (ui != null) {
-                    ui.updateMasterTimer(remaining, state);
+            // Update server UI (thread-safe update)
+            if (ui != null) {
+                ui.updateMasterTimer(remaining, state);
 
-                    // Update answer count display
-                    if (session.getCurrentQuestion() != null) {
-                        int questionId = session.getCurrentQuestion().getId();
-                        Set<String> answered = questionAnswers.get(questionId);
-                        int answeredCount = answered != null ? answered.size() : 0;
-                        ui.updateAnswerCount(answeredCount, getConnectedClientsCount());
-                    }
+                // Update answer count display
+                if (session.getCurrentQuestion() != null) {
+                    int questionId = session.getCurrentQuestion().getId();
+                    Set<String> answered = questionAnswers.get(questionId);
+                    int answeredCount = answered != null ? answered.size() : 0;
+                    ui.updateAnswerCount(answeredCount, getConnectedClientsCount());
                 }
             }
         }, 0, 1, TimeUnit.SECONDS);
@@ -210,6 +211,8 @@ public class QuizServer {
             timerBroadcastTask.cancel(false);
             timerBroadcastTask = null;
         }
+        timerPaused = false;
+        pausedTimeRemaining = 0;
     }
 
     /**
@@ -217,11 +220,14 @@ public class QuizServer {
      */
     private int getRemainingTime() {
         if (timerPaused) {
+            // Return the frozen time when paused
             return pausedTimeRemaining;
         }
 
-        long elapsed = (System.currentTimeMillis() - questionStartTime) / 1000;
-        int remaining = currentQuestionTimeLimit - (int)elapsed;
+        // Calculate time elapsed since question started
+        long elapsedMs = System.currentTimeMillis() - questionStartTime;
+        int elapsedSeconds = (int)(elapsedMs / 1000);
+        int remaining = currentQuestionTimeLimit - elapsedSeconds;
         return Math.max(0, remaining);
     }
 
@@ -244,13 +250,14 @@ public class QuizServer {
      * Event-driven: UI button triggers network event affecting all clients
      */
     public synchronized void pauseTimer() {
-        if (!timerPaused) {
-            timerPaused = true;
+        if (!timerPaused && timerBroadcastTask != null) {
+            // Get current remaining time before pausing
             pausedTimeRemaining = getRemainingTime();
+            timerPaused = true;
 
             // Broadcast pause control to all clients
-            broadcast(Protocol.TIMER_CONTROL, "pause~");
-            log("Timer paused at " + pausedTimeRemaining + " seconds remaining");
+            broadcast(Protocol.TIMER_CONTROL, "pause~" + pausedTimeRemaining);
+            log("⏸ Timer PAUSED at " + pausedTimeRemaining + " seconds remaining");
         }
     }
 
@@ -258,15 +265,20 @@ public class QuizServer {
      * Member 5 - Resumes the quiz timer
      */
     public synchronized void resumeTimer() {
-        if (timerPaused) {
-            timerPaused = false;
-            // Adjust start time to account for pause duration
-            questionStartTime = System.currentTimeMillis() -
-                               ((currentQuestionTimeLimit - pausedTimeRemaining) * 1000L);
+        if (timerPaused && timerBroadcastTask != null) {
+            // Calculate new start time based on paused remaining time
+            // If we have 45 seconds remaining and total was 60:
+            // Time already used = 60 - 45 = 15 seconds
+            // New start time = now - 15 seconds (so timer continues from 45s remaining)
+            int timeAlreadyUsed = currentQuestionTimeLimit - pausedTimeRemaining;
+            questionStartTime = System.currentTimeMillis() - (timeAlreadyUsed * 1000L);
 
-            // Broadcast resume control to all clients
-            broadcast(Protocol.TIMER_CONTROL, "resume~");
-            log("Timer resumed with " + pausedTimeRemaining + " seconds remaining");
+            // Unpause
+            timerPaused = false;
+
+            // Broadcast resume control to all clients with the remaining time
+            broadcast(Protocol.TIMER_CONTROL, "resume~" + pausedTimeRemaining);
+            log("▶ Timer RESUMED - continuing from " + pausedTimeRemaining + " seconds");
         }
     }
 
@@ -274,11 +286,22 @@ public class QuizServer {
      * Member 5 - Extends current question time by specified seconds
      */
     public synchronized void extendTimer(int additionalSeconds) {
-        currentQuestionTimeLimit += additionalSeconds;
+        if (timerBroadcastTask != null) {
+            // Always increase the total time limit
+            currentQuestionTimeLimit += additionalSeconds;
 
-        // Broadcast extend control to all clients
-        broadcast(Protocol.TIMER_CONTROL, "extend~" + additionalSeconds);
-        log("Timer extended by " + additionalSeconds + " seconds");
+            if (timerPaused) {
+                // If paused, add to the frozen time
+                pausedTimeRemaining += additionalSeconds;
+                log("⏱ Timer extended by " + additionalSeconds + "s while PAUSED (now at: " + pausedTimeRemaining + "s)");
+            } else {
+                // If running, the increased time limit will automatically give more time
+                log("⏱ Timer extended by " + additionalSeconds + "s while RUNNING (new remaining: " + getRemainingTime() + "s)");
+            }
+
+            // Broadcast extend control to all clients
+            broadcast(Protocol.TIMER_CONTROL, "extend~" + additionalSeconds);
+        }
     }
 
     /**
@@ -359,6 +382,18 @@ public class QuizServer {
     public int getAnsweredCount(int questionId) {
         Set<String> answered = questionAnswers.get(questionId);
         return answered != null ? answered.size() : 0;
+    }
+
+    /**
+     * Checks if a specific student has answered the current question
+     */
+    public boolean hasStudentAnswered(String studentId) {
+        if (!session.isActive() || session.getCurrentQuestion() == null) {
+            return false;
+        }
+        int questionId = session.getCurrentQuestion().getId();
+        Set<String> answered = questionAnswers.get(questionId);
+        return answered != null && answered.contains(studentId);
     }
 
     /**

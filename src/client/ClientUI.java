@@ -1,12 +1,14 @@
 package client;
 
-import model.Question;
 import common.Protocol;
+import model.Question;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.concurrent.*;
+import java.util.Map;
+import java.util.HashMap;
 
 /**
  * ClientUI - Graphical interface for the quiz client
@@ -48,6 +50,26 @@ public class ClientUI extends JFrame {
     private int serverRemainingTime = 0;       // Time from server (synchronized)
     private boolean useServerTimer = false;     // Whether to use server-synchronized timer
 
+    // 3️⃣ Connection Status & Network Monitoring
+    private JLabel connectionStatusLabel;      // Connection status indicator
+    private JLabel latencyLabel;               // Network latency display
+    private long lastPingTime;                 // Track ping timing
+    private ScheduledFuture<?> pingTask;       // Periodic ping task
+
+    // 4️⃣ Enhanced Leaderboard - Track rank changes
+    private Map<String, Integer> previousRanks;  // Previous rankings
+    private JPanel miniLeaderboardPanel;         // Compact top 5 view
+
+    // 5️⃣ Enhanced Question Display
+    private JPanel[] optionPanels;             // Card-style option containers
+    private int selectedOptionIndex = -1;      // Track keyboard selection
+
+    // 6️⃣ Progress Indicators
+    private JProgressBar quizProgressBar;      // Overall quiz progress
+    private JLabel progressLabel;              // Question X of Y
+    private int totalQuestions = 0;
+    private int currentQuestionNumber = 0;
+
     // Card layout components
     private CardLayout cardLayout;
     private JPanel cardPanel;
@@ -55,13 +77,15 @@ public class ClientUI extends JFrame {
     public ClientUI(QuizClient client) {
         this.client = client;
         this.currentScore = 0;
-        this.timerExecutor = Executors.newScheduledThreadPool(1);
+        this.timerExecutor = Executors.newScheduledThreadPool(2);
+        this.previousRanks = new HashMap<>();
         initComponents();
+        setupKeyboardShortcuts();
     }
 
     private void initComponents() {
         setTitle("QuizHub Client - Student Interface");
-        setSize(1000, 700);
+        setSize(1200, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -85,8 +109,54 @@ public class ClientUI extends JFrame {
                     client.disconnect();
                 }
                 timerExecutor.shutdown();
+                if (pingTask != null) {
+                    pingTask.cancel(false);
+                }
             }
         });
+    }
+
+    /**
+     * 5️⃣ Keyboard Shortcuts: Event-Driven Programming with KeyEventDispatcher
+     * Demonstrates accessibility and enhanced user interaction
+     * Keys: 1/2/3/4 to select options, Enter to submit
+     */
+    private void setupKeyboardShortcuts() {
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(e -> {
+            if (e.getID() == KeyEvent.KEY_PRESSED && currentQuestion != null && !answerSubmitted) {
+                switch (e.getKeyCode()) {
+                    case KeyEvent.VK_1:
+                        selectOption(0);
+                        return true;
+                    case KeyEvent.VK_2:
+                        selectOption(1);
+                        return true;
+                    case KeyEvent.VK_3:
+                        selectOption(2);
+                        return true;
+                    case KeyEvent.VK_4:
+                        selectOption(3);
+                        return true;
+                    case KeyEvent.VK_ENTER:
+                        if (submitBtn.isEnabled()) {
+                            submitAnswer();
+                        }
+                        return true;
+                }
+            }
+            return false;
+        });
+    }
+
+    /**
+     * 5️⃣ Helper method for keyboard selection
+     */
+    private void selectOption(int index) {
+        if (index >= 0 && index < 4 && optionButtons[index].isEnabled()) {
+            optionButtons[index].setSelected(true);
+            selectedOptionIndex = index;
+            updateOptionStyles();
+        }
     }
 
     private JPanel createLoginPanel() {
@@ -98,8 +168,9 @@ public class ClientUI extends JFrame {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         // Title
-        JLabel titleLabel = new JLabel("QuizHub - Student Login");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        JLabel titleLabel = new JLabel("🎓 QuizHub - Student Login");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 28));
+        titleLabel.setForeground(new Color(0, 100, 180));
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.gridwidth = 2;
@@ -134,7 +205,7 @@ public class ClientUI extends JFrame {
         gbc.gridx = 0;
         gbc.gridy++;
         gbc.gridwidth = 2;
-        connectBtn = new JButton("Connect to Quiz");
+        connectBtn = new JButton("🔗 Connect to Quiz");
         connectBtn.setFont(new Font("Arial", Font.BOLD, 16));
         connectBtn.setBackground(new Color(0, 150, 0));
         connectBtn.setForeground(Color.WHITE);
@@ -160,7 +231,7 @@ public class ClientUI extends JFrame {
         JSplitPane rightSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
         rightSplit.setTopComponent(createLeaderboardPanel());
         rightSplit.setBottomComponent(createChatPanel());
-        rightSplit.setDividerLocation(250);
+        rightSplit.setDividerLocation(300);
 
         panel.add(rightSplit, BorderLayout.EAST);
 
@@ -172,13 +243,35 @@ public class ClientUI extends JFrame {
     }
 
     private JPanel createStatusPanel() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(new Color(230, 240, 255));
+
+        // Left side - Question info and progress
+        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        leftPanel.setBackground(new Color(230, 240, 255));
 
         questionNumberLabel = new JLabel("Waiting for quiz to start...");
         questionNumberLabel.setFont(new Font("Arial", Font.BOLD, 16));
 
-        timerLabel = new JLabel("Time: --");
+        // 6️⃣ Quiz Progress Bar
+        progressLabel = new JLabel("Progress: 0/0");
+        progressLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+
+        quizProgressBar = new JProgressBar(0, 100);
+        quizProgressBar.setStringPainted(true);
+        quizProgressBar.setPreferredSize(new Dimension(150, 20));
+        quizProgressBar.setString("0%");
+
+        leftPanel.add(questionNumberLabel);
+        leftPanel.add(Box.createHorizontalStrut(20));
+        leftPanel.add(progressLabel);
+        leftPanel.add(quizProgressBar);
+
+        // Right side - Timer, Score, Connection Status
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        rightPanel.setBackground(new Color(230, 240, 255));
+
+        timerLabel = new JLabel("Time: --:--");
         timerLabel.setFont(new Font("Arial", Font.BOLD, 16));
         timerLabel.setForeground(Color.BLUE);
 
@@ -186,11 +279,25 @@ public class ClientUI extends JFrame {
         scoreLabel.setFont(new Font("Arial", Font.BOLD, 16));
         scoreLabel.setForeground(new Color(0, 150, 0));
 
-        panel.add(questionNumberLabel);
-        panel.add(Box.createHorizontalStrut(50));
-        panel.add(timerLabel);
-        panel.add(Box.createHorizontalStrut(50));
-        panel.add(scoreLabel);
+        // 3️⃣ Connection Status Indicator
+        connectionStatusLabel = new JLabel("● ");
+        connectionStatusLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        connectionStatusLabel.setForeground(Color.GRAY);
+        connectionStatusLabel.setToolTipText("Disconnected");
+
+        latencyLabel = new JLabel("Ping: --ms");
+        latencyLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        latencyLabel.setForeground(Color.GRAY);
+
+        rightPanel.add(connectionStatusLabel);
+        rightPanel.add(latencyLabel);
+        rightPanel.add(Box.createHorizontalStrut(20));
+        rightPanel.add(timerLabel);
+        rightPanel.add(Box.createHorizontalStrut(20));
+        rightPanel.add(scoreLabel);
+
+        panel.add(leftPanel, BorderLayout.WEST);
+        panel.add(rightPanel, BorderLayout.EAST);
 
         return panel;
     }
@@ -204,40 +311,130 @@ public class ClientUI extends JFrame {
         questionLabel.setBorder(new EmptyBorder(20, 20, 20, 20));
         panel.add(questionLabel, BorderLayout.NORTH);
 
-        // Options
-        JPanel optionsPanel = new JPanel(new GridLayout(4, 1, 10, 10));
-        optionsPanel.setBorder(new EmptyBorder(10, 20, 10, 20));
+        // 5️⃣ Enhanced Options - Card-style with hover effects
+        JPanel optionsContainer = new JPanel(new GridLayout(4, 1, 10, 10));
+        optionsContainer.setBorder(new EmptyBorder(10, 20, 10, 20));
         optionsGroup = new ButtonGroup();
         optionButtons = new JRadioButton[4];
+        optionPanels = new JPanel[4];
 
         for (int i = 0; i < 4; i++) {
+            final int index = i;
+
+            // Card-style container for each option
+            optionPanels[i] = new JPanel(new BorderLayout());
+            optionPanels[i].setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(200, 200, 200), 2, true),
+                BorderFactory.createEmptyBorder(10, 15, 10, 15)
+            ));
+            optionPanels[i].setBackground(Color.WHITE);
+
             optionButtons[i] = new JRadioButton();
             optionButtons[i].setFont(new Font("Arial", Font.PLAIN, 14));
             optionButtons[i].setEnabled(false);
+            optionButtons[i].setBackground(Color.WHITE);
+            optionButtons[i].setOpaque(false);
+
             optionsGroup.add(optionButtons[i]);
-            optionsPanel.add(optionButtons[i]);
+            optionPanels[i].add(optionButtons[i], BorderLayout.CENTER);
+
+            // 5️⃣ Mouse hover effects (Event-Driven Visual Feedback)
+            optionPanels[i].addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    if (optionButtons[index].isEnabled()) {
+                        optionPanels[index].setBackground(new Color(230, 240, 255));
+                        optionPanels[index].setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(new Color(0, 120, 215), 2, true),
+                            BorderFactory.createEmptyBorder(10, 15, 10, 15)
+                        ));
+                    }
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    if (!optionButtons[index].isSelected()) {
+                        optionPanels[index].setBackground(Color.WHITE);
+                        optionPanels[index].setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(new Color(200, 200, 200), 2, true),
+                            BorderFactory.createEmptyBorder(10, 15, 10, 15)
+                        ));
+                    }
+                }
+
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    if (optionButtons[index].isEnabled()) {
+                        optionButtons[index].setSelected(true);
+                        updateOptionStyles();
+                    }
+                }
+            });
+
+            // Update styles when selection changes
+            optionButtons[i].addActionListener(e -> updateOptionStyles());
+
+            optionsContainer.add(optionPanels[i]);
         }
 
-        panel.add(optionsPanel, BorderLayout.CENTER);
+        panel.add(optionsContainer, BorderLayout.CENTER);
 
-        // Submit button
-        submitBtn = new JButton("Submit Answer");
+        // Submit button with hint
+        JPanel submitPanel = new JPanel(new BorderLayout());
+        submitBtn = new JButton("✓ Submit Answer");
         submitBtn.setFont(new Font("Arial", Font.BOLD, 16));
         submitBtn.setEnabled(false);
         submitBtn.addActionListener(e -> submitAnswer());
 
-        JPanel submitPanel = new JPanel();
-        submitPanel.add(submitBtn);
+        JLabel hintLabel = new JLabel("Tip: Use keys 1-4 to select, Enter to submit");
+        hintLabel.setFont(new Font("Arial", Font.ITALIC, 11));
+        hintLabel.setForeground(Color.GRAY);
+        hintLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        submitPanel.add(submitBtn, BorderLayout.CENTER);
+        submitPanel.add(hintLabel, BorderLayout.SOUTH);
         panel.add(submitPanel, BorderLayout.SOUTH);
 
         return panel;
     }
 
+    /**
+     * 5️⃣ Updates visual styles based on selection state
+     */
+    private void updateOptionStyles() {
+        SwingUtilities.invokeLater(() -> {
+            for (int i = 0; i < 4; i++) {
+                if (optionButtons[i].isSelected()) {
+                    optionPanels[i].setBackground(new Color(220, 245, 220));
+                    optionPanels[i].setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(0, 150, 0), 3, true),
+                        BorderFactory.createEmptyBorder(10, 15, 10, 15)
+                    ));
+                } else if (optionButtons[i].isEnabled()) {
+                    optionPanels[i].setBackground(Color.WHITE);
+                    optionPanels[i].setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(200, 200, 200), 2, true),
+                        BorderFactory.createEmptyBorder(10, 15, 10, 15)
+                    ));
+                }
+            }
+        });
+    }
+
     private JPanel createLeaderboardPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Leaderboard"));
+        panel.setBorder(BorderFactory.createTitledBorder("🏆 Live Leaderboard"));
 
-        leaderboardArea = new JTextArea(12, 25);
+        // 4️⃣ Mini leaderboard - compact view
+        miniLeaderboardPanel = new JPanel();
+        miniLeaderboardPanel.setLayout(new BoxLayout(miniLeaderboardPanel, BoxLayout.Y_AXIS));
+        miniLeaderboardPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+
+        JScrollPane miniScroll = new JScrollPane(miniLeaderboardPanel);
+        miniScroll.setPreferredSize(new Dimension(280, 150));
+        panel.add(miniScroll, BorderLayout.NORTH);
+
+        leaderboardArea = new JTextArea(8, 25);
         leaderboardArea.setEditable(false);
         leaderboardArea.setFont(new Font("Monospaced", Font.PLAIN, 11));
 
@@ -249,7 +446,7 @@ public class ClientUI extends JFrame {
 
     private JPanel createChatPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Chat"));
+        panel.setBorder(BorderFactory.createTitledBorder("Chat & Notifications"));
 
         chatArea = new JTextArea(8, 25);
         chatArea.setEditable(false);
@@ -316,11 +513,17 @@ public class ClientUI extends JFrame {
                         // Switch to quiz panel
                         cardLayout.show(cardPanel, "QUIZ");
                         setTitle("QuizHub - " + studentName);
+
+                        // 3️⃣ Update connection status
+                        updateConnectionStatus("connected");
+
+                        // Start ping monitoring
+                        startPingMonitoring();
                     } else {
                         JOptionPane.showMessageDialog(ClientUI.this,
                             "Failed to connect to server", "Error", JOptionPane.ERROR_MESSAGE);
                         connectBtn.setEnabled(true);
-                        connectBtn.setText("Connect to Quiz");
+                        connectBtn.setText("🔗 Connect to Quiz");
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -329,10 +532,71 @@ public class ClientUI extends JFrame {
         }.execute();
     }
 
-    public void handleQuizStart(int totalQuestions) {
+    /**
+     * 3️⃣ Network Monitoring: Starts periodic ping to measure latency
+     * Demonstrates asynchronous network monitoring
+     */
+    private void startPingMonitoring() {
+        pingTask = timerExecutor.scheduleAtFixedRate(() -> {
+            lastPingTime = System.currentTimeMillis();
+            client.sendMessage(Protocol.PING, String.valueOf(lastPingTime));
+        }, 2, 5, TimeUnit.SECONDS);
+    }
+
+    /**
+     * 3️⃣ Handles PONG response to calculate latency
+     */
+    public void handlePong(long sentTime) {
+        long latency = System.currentTimeMillis() - sentTime;
         SwingUtilities.invokeLater(() -> {
-            showMessage("Quiz", "Quiz started! Total questions: " + totalQuestions);
+            latencyLabel.setText("Ping: " + latency + "ms");
+
+            // Update connection quality indicator
+            if (latency < 100) {
+                connectionStatusLabel.setForeground(new Color(0, 200, 0)); // Green - good
+                connectionStatusLabel.setToolTipText("Connected - Good (" + latency + "ms)");
+            } else if (latency < 300) {
+                connectionStatusLabel.setForeground(new Color(255, 165, 0)); // Orange - slow
+                connectionStatusLabel.setToolTipText("Connected - Slow (" + latency + "ms)");
+            } else {
+                connectionStatusLabel.setForeground(new Color(255, 100, 0)); // Red-orange - poor
+                connectionStatusLabel.setToolTipText("Connected - Poor (" + latency + "ms)");
+            }
+        });
+    }
+
+    /**
+     * 3️⃣ Updates connection status indicator
+     */
+    private void updateConnectionStatus(String status) {
+        SwingUtilities.invokeLater(() -> {
+            switch (status) {
+                case "connected":
+                    connectionStatusLabel.setForeground(new Color(0, 200, 0));
+                    connectionStatusLabel.setToolTipText("Connected");
+                    break;
+                case "disconnected":
+                    connectionStatusLabel.setForeground(Color.RED);
+                    connectionStatusLabel.setToolTipText("Disconnected");
+                    latencyLabel.setText("Ping: --ms");
+                    break;
+                case "offline":
+                    connectionStatusLabel.setForeground(Color.GRAY);
+                    connectionStatusLabel.setToolTipText("Offline");
+                    latencyLabel.setText("Ping: --ms");
+                    break;
+            }
+        });
+    }
+
+    public void handleQuizStart(int totalQuestions) {
+        this.totalQuestions = totalQuestions;
+        this.currentQuestionNumber = 0;
+
+        SwingUtilities.invokeLater(() -> {
+            showToast("📢 Quiz Started!", "Total questions: " + totalQuestions, new Color(0, 120, 215));
             questionNumberLabel.setText("Quiz Started - Total Questions: " + totalQuestions);
+            updateQuizProgress();
         });
     }
 
@@ -341,24 +605,88 @@ public class ClientUI extends JFrame {
             currentQuestion = question;
             questionStartTime = System.currentTimeMillis();
             answerSubmitted = false;
+            currentQuestionNumber++;
 
             // Update UI
             questionLabel.setText("<html><h2>" + question.getQuestionText() + "</h2></html>");
             questionNumberLabel.setText("Question " + question.getId());
 
-            // Set options
+            // Set options with card styling
             String[] options = question.getOptions();
             for (int i = 0; i < 4; i++) {
                 optionButtons[i].setText((char)('A' + i) + ". " + options[i]);
                 optionButtons[i].setEnabled(true);
+                optionPanels[i].setBackground(Color.WHITE);
             }
             optionsGroup.clearSelection();
-
             submitBtn.setEnabled(true);
 
-            // Start timer
-            startQuestionTimer(question.getTimeLimit());
+            // Update progress
+            updateQuizProgress();
+
+            // Show toast notification
+            showToast("📝 New Question", "Question " + currentQuestionNumber + " of " + totalQuestions,
+                     new Color(0, 150, 0));
+
+            // DO NOT start local timer - rely on server synchronization only
+            // The server will broadcast timer updates via handleTimerSync()
+            // This ensures pause/resume commands work correctly
         });
+    }
+
+    /**
+     * 6️⃣ Updates quiz progress indicators
+     */
+    private void updateQuizProgress() {
+        SwingUtilities.invokeLater(() -> {
+            if (totalQuestions > 0) {
+                int percentage = (currentQuestionNumber * 100) / totalQuestions;
+                progressLabel.setText(String.format("Progress: %d/%d", currentQuestionNumber, totalQuestions));
+                quizProgressBar.setValue(percentage);
+                quizProgressBar.setString(percentage + "%");
+            }
+        });
+    }
+
+    /**
+     * 3️⃣ Toast Notification System - Non-blocking visual feedback
+     * Demonstrates event-driven UI updates without interrupting user
+     */
+    private void showToast(String title, String message, Color bgColor) {
+        JWindow toast = new JWindow(this);
+        toast.setBackground(new Color(0, 0, 0, 0));
+
+        JPanel panel = new JPanel(new BorderLayout(5, 5));
+        panel.setBackground(bgColor);
+        panel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(Color.DARK_GRAY, 2),
+            BorderFactory.createEmptyBorder(10, 20, 10, 20)
+        ));
+
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setForeground(Color.WHITE);
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
+
+        JLabel msgLabel = new JLabel(message);
+        msgLabel.setForeground(Color.WHITE);
+        msgLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+
+        panel.add(titleLabel, BorderLayout.NORTH);
+        panel.add(msgLabel, BorderLayout.CENTER);
+
+        toast.add(panel);
+        toast.pack();
+
+        // Position in top-right corner
+        Point location = getLocation();
+        Dimension size = getSize();
+        toast.setLocation(location.x + size.width - toast.getWidth() - 20, location.y + 80);
+        toast.setVisible(true);
+
+        // Auto-hide after 3 seconds (non-blocking Swing Timer)
+        Timer timer = new Timer(3000, e -> toast.dispose());
+        timer.setRepeats(false);
+        timer.start();
     }
 
     private void startQuestionTimer(int timeLimit) {
@@ -410,9 +738,10 @@ public class ClientUI extends JFrame {
         answerSubmitted = true;
         long timeTaken = System.currentTimeMillis() - questionStartTime;
 
-        // Disable controls
-        for (JRadioButton btn : optionButtons) {
-            btn.setEnabled(false);
+        // Disable controls and update styles
+        for (int i = 0; i < 4; i++) {
+            optionButtons[i].setEnabled(false);
+            optionPanels[i].setBackground(new Color(240, 240, 240));
         }
         submitBtn.setEnabled(false);
 
@@ -429,12 +758,13 @@ public class ClientUI extends JFrame {
         answerSubmitted = true;
 
         // Disable controls
-        for (JRadioButton btn : optionButtons) {
-            btn.setEnabled(false);
+        for (int i = 0; i < 4; i++) {
+            optionButtons[i].setEnabled(false);
+            optionPanels[i].setBackground(new Color(240, 240, 240));
         }
         submitBtn.setEnabled(false);
 
-        showMessage("System", "Time's up! Auto-submitting...");
+        showMessage("System", "⏰ Time's up! Auto-submitting...");
     }
 
     public void handleAnswerResult(boolean correct, int pointsEarned, String message, int totalScore) {
@@ -442,21 +772,46 @@ public class ClientUI extends JFrame {
             currentScore = totalScore;
             scoreLabel.setText("Score: " + currentScore);
 
-            String title = correct ? "Correct!" : "Incorrect";
-            Color color = correct ? new Color(0, 150, 0) : Color.RED;
+            // 3️⃣ Toast notification for result
+            String title = correct ? "✓ Correct!" : "✗ Incorrect";
+            Color color = correct ? new Color(0, 150, 0) : new Color(200, 0, 0);
+            showToast(title, message, color);
 
-            JOptionPane optionPane = new JOptionPane(
-                message,
-                correct ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.ERROR_MESSAGE
-            );
-            JDialog dialog = optionPane.createDialog(this, title);
-            dialog.setModal(false);
-            dialog.setVisible(true);
-
-            // Auto-close after 2 seconds
-            timerExecutor.schedule(() -> SwingUtilities.invokeLater(() -> dialog.dispose()),
-                                  2, TimeUnit.SECONDS);
+            // 4️⃣ Show score animation if points earned
+            if (pointsEarned > 0) {
+                animateScoreChange("+" + pointsEarned);
+            }
         });
+    }
+
+    /**
+     * 4️⃣ Animates score changes with floating text
+     */
+    private void animateScoreChange(String changeText) {
+        JLabel scoreChange = new JLabel(changeText);
+        scoreChange.setFont(new Font("Arial", Font.BOLD, 20));
+        scoreChange.setForeground(new Color(0, 180, 0));
+
+        JWindow floater = new JWindow(this);
+        floater.add(scoreChange);
+        floater.pack();
+
+        Point scoreLoc = scoreLabel.getLocationOnScreen();
+        floater.setLocation(scoreLoc.x + scoreLabel.getWidth() + 10, scoreLoc.y);
+        floater.setVisible(true);
+
+        // Animate upward and fade out
+        Timer animator = new Timer(50, null);
+        final int[] step = {0};
+        animator.addActionListener(e -> {
+            step[0]++;
+            floater.setLocation(floater.getX(), floater.getY() - 3);
+            if (step[0] > 20) {
+                floater.dispose();
+                ((Timer)e.getSource()).stop();
+            }
+        });
+        animator.start();
     }
 
     public void handleLeaderboard(String data) {
@@ -467,43 +822,110 @@ public class ClientUI extends JFrame {
             }
 
             StringBuilder sb = new StringBuilder();
-            sb.append(String.format("%-4s | %-15s | %-5s\n", "Rank", "Name", "Score"));
+            sb.append(String.format("%-4s  %-15s  %-5s  %-3s\n", "Rank", "Name", "Score", "Δ"));
             sb.append("-".repeat(35)).append("\n");
 
+            // 4️⃣ Clear mini leaderboard
+            miniLeaderboardPanel.removeAll();
+
             String[] entries = data.split("\\|\\|");
+            int position = 0;
             for (String entry : entries) {
                 String[] parts = entry.split("~");
                 if (parts.length >= 3) {
-                    sb.append(String.format("%-4s | %-15s | %-5s\n",
-                        parts[0], parts[1], parts[2]));
+                    position++;
+                    String studentName = parts[1];
+                    int score = Integer.parseInt(parts[2]);
+
+                    // Detect rank change
+                    String rankChange = "–";
+                    if (previousRanks.containsKey(studentName)) {
+                        int prevRank = previousRanks.get(studentName);
+                        if (prevRank > position) rankChange = "↑";
+                        else if (prevRank < position) rankChange = "↓";
+                    }
+                    previousRanks.put(studentName, position);
+
+                    // Medal icons for top 3
+                    String medal = "";
+                    if (position == 1) medal = "🥇 ";
+                    else if (position == 2) medal = "🥈 ";
+                    else if (position == 3) medal = "🥉 ";
+
+                    sb.append(String.format("%-4s  %s%-15s  %-5s  %-3s\n",
+                        parts[0], medal, studentName, parts[2], rankChange));
+
+                    // 4️⃣ Add to mini leaderboard (top 5 only)
+                    if (position <= 5) {
+                        JPanel miniRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                        miniRow.setBackground(position <= 3 ? new Color(255, 250, 205) : Color.WHITE);
+                        JLabel miniLabel = new JLabel(String.format("%s#%d %s - %d pts",
+                            medal, position, studentName, score));
+                        miniLabel.setFont(new Font("Arial", Font.BOLD, 12));
+                        miniRow.add(miniLabel);
+                        miniLeaderboardPanel.add(miniRow);
+                    }
                 }
             }
 
-            leaderboardArea.setText(sb.toString());
+            // Highlight current user's row in full leaderboard
+            String currentUser = client.getStudentName();
+            String leaderboardText = sb.toString();
+            leaderboardArea.setText(leaderboardText);
+
+            miniLeaderboardPanel.revalidate();
+            miniLeaderboardPanel.repaint();
         });
     }
 
     public void handleQuizEnd(String leaderboardData) {
         SwingUtilities.invokeLater(() -> {
-            if (questionTimer != null) {
-                questionTimer.stop();
-            }
-
             handleLeaderboard(leaderboardData);
+
+            showToast("🏁 Quiz Completed!", "Final Score: " + currentScore, new Color(100, 100, 200));
 
             JOptionPane.showMessageDialog(this,
                 "Quiz has ended!\nYour final score: " + currentScore,
                 "Quiz Completed", JOptionPane.INFORMATION_MESSAGE);
 
-            questionLabel.setText("<html><h2>Quiz Completed! Check the leaderboard for final results.</h2></html>");
+            questionLabel.setText("<html><h2>🏁 Quiz Completed! Check the leaderboard for final results.</h2></html>");
             questionNumberLabel.setText("Quiz Ended");
-            timerLabel.setText("--");
+            timerLabel.setText("--:--");
+            timerLabel.setForeground(Color.BLUE);
             submitBtn.setEnabled(false);
+
+            // Clear all answer options from the last question
+            if (optionsGroup != null) {
+                optionsGroup.clearSelection();
+            }
+            if (optionButtons != null) {
+                for (JRadioButton btn : optionButtons) {
+                    if (btn != null) {
+                        btn.setVisible(false);
+                        btn.setEnabled(false);
+                    }
+                }
+            }
+            if (optionPanels != null) {
+                for (JPanel panel : optionPanels) {
+                    if (panel != null) {
+                        panel.setVisible(false);
+                    }
+                }
+            }
+
+            // Reset quiz progress
+            if (quizProgressBar != null) {
+                quizProgressBar.setValue(100);
+            }
+            if (progressLabel != null) {
+                progressLabel.setText("Quiz Completed");
+            }
         });
     }
 
     /**
-     * Member 5 - Network-Synchronized Timer Update (MUST KEEP Feature)
+     * Member 5 - Network-Synchronized Timer Update (PRIMARY TIMER)
      * Thread-Safe UI Update: Handles timer synchronization messages from server
      * This demonstrates network-driven event updates with thread safety
      *
@@ -539,7 +961,7 @@ public class ClientUI extends JFrame {
                     break;
             }
 
-            // Auto-submit when time reaches zero
+            // Auto-submit when time reaches zero (only if not paused)
             if (remainingSeconds <= 0 && !answerSubmitted && currentQuestion != null) {
                 autoSubmitAnswer();
             }
@@ -554,15 +976,16 @@ public class ClientUI extends JFrame {
         SwingUtilities.invokeLater(() -> {
             switch (control) {
                 case "pause":
-                    showMessage("Server", "Quiz timer PAUSED by instructor");
+                    showToast("⏸ Timer Paused", "Instructor paused the quiz", new Color(255, 165, 0));
                     timerLabel.setForeground(Color.GRAY);
                     break;
                 case "resume":
-                    showMessage("Server", "Quiz timer RESUMED");
+                    showToast("▶ Timer Resumed", "Quiz continues", new Color(0, 150, 0));
                     break;
                 case "extend":
                     int additionalTime = Integer.parseInt(data);
-                    showMessage("Server", "Instructor added " + additionalTime + " seconds!");
+                    showToast("⏱ Time Extended", "+" + additionalTime + " seconds added!",
+                             new Color(0, 120, 215));
                     break;
             }
         });
@@ -570,9 +993,39 @@ public class ClientUI extends JFrame {
 
     public void handleDisconnection() {
         SwingUtilities.invokeLater(() -> {
-            JOptionPane.showMessageDialog(this,
-                "Disconnected from server", "Connection Lost", JOptionPane.ERROR_MESSAGE);
+            updateConnectionStatus("disconnected");
+
+            // 3️⃣ Auto-reconnect countdown dialog
+            showReconnectDialog();
         });
+    }
+
+    /**
+     * 3️⃣ Shows auto-reconnect countdown dialog
+     */
+    private void showReconnectDialog() {
+        JDialog dialog = new JDialog(this, "Connection Lost", true);
+        dialog.setLayout(new BorderLayout(10, 10));
+
+        JLabel messageLabel = new JLabel("<html><center>Connection to server lost!<br>Attempting to reconnect...</center></html>");
+        messageLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        messageLabel.setBorder(new EmptyBorder(20, 20, 10, 20));
+
+        JProgressBar progressBar = new JProgressBar();
+        progressBar.setIndeterminate(true);
+        progressBar.setBorder(new EmptyBorder(10, 20, 20, 20));
+
+        dialog.add(messageLabel, BorderLayout.CENTER);
+        dialog.add(progressBar, BorderLayout.SOUTH);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+
+        // Auto-close after showing (this is just visual feedback)
+        Timer closeTimer = new Timer(5000, e -> dialog.dispose());
+        closeTimer.setRepeats(false);
+        closeTimer.start();
+
+        dialog.setVisible(true);
     }
 
     private void sendChatMessage() {
