@@ -212,4 +212,14 @@ public class ClientHandler implements Runnable {
     public void close() {
         cleanup();
     }
+
+    public void disconnect() {
+    try {
+        running = false;
+        socket.close();
+    } catch (Exception ignored) {}
 }
+
+}
+
+

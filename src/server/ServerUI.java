@@ -145,7 +145,13 @@ public class ServerUI extends JFrame {
 
         // Event-Driven Programming: ActionListeners respond to user button clicks
         startServerBtn.addActionListener(e -> startServer());
-        stopServerBtn.addActionListener(e -> stopServer());
+        
+        stopServerBtn.addActionListener(e -> {
+    if (server != null) {
+        server.stopServer();
+    }
+});
+
         startQuizBtn.addActionListener(e -> startQuiz());
         nextQuestionBtn.addActionListener(e -> nextQuestion());
         endQuizBtn.addActionListener(e -> endQuiz());
@@ -239,6 +245,25 @@ public class ServerUI extends JFrame {
             appendLog("▶ Quiz timer RESUMED by administrator");
         }
     }
+
+
+    public void setServerStopped() {
+    SwingUtilities.invokeLater(() -> {
+        statusLabel.setText("Server: Stopped");
+        statusLabel.setForeground(Color.RED);
+
+        startServerBtn.setEnabled(true);
+        stopServerBtn.setEnabled(false);
+
+        startQuizBtn.setEnabled(false);
+        nextQuestionBtn.setEnabled(false);
+        endQuizBtn.setEnabled(false);
+
+        connectionStatusLabel.setForeground(Color.GRAY);
+        connectionStatusLabel.setToolTipText("Server Offline");
+    });
+}
+
 
     /**
      * Event-Driven Programming: Handles extend time control
@@ -564,6 +589,9 @@ public class ServerUI extends JFrame {
         nextQuestionBtn.setEnabled(false);
         endQuizBtn.setEnabled(false);
         exportResultsBtn.setEnabled(true);
+        String analytics = server.getScoringSystem().generateDetailedAnalytics();
+        logArea.append("\n" + analytics);
+
     }
 
     /**

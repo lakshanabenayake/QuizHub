@@ -599,4 +599,45 @@ public class QuizServer {
             ui.setVisible(true);
         });
     }
+
+    public synchronized void stopServer() {
+    try {
+        log("Stopping server...");
+
+        running = false;
+
+        // 1. Close server socket
+        if (serverSocket != null && !serverSocket.isClosed()) {
+            serverSocket.close();
+        }
+
+        // 2. Disconnect all clients
+        for (ClientHandler handler : clients) {
+            try {
+                handler.disconnect();
+            } catch (Exception ignored) {}
+        }
+        clients.clear();
+
+        // 3. Stop timers/executors
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.shutdownNow();
+        }
+        if (threadPool != null && !threadPool.isShutdown()) {
+            threadPool.shutdownNow();
+        }
+
+        // 4. Notify UI
+        if (ui != null) {
+            ui.setServerStopped();
+        }
+
+        log("Server stopped successfully.");
+        
+    } catch (Exception e) {
+        log("Error stopping server: " + e.getMessage());
+    }
+}
+
+
 }
